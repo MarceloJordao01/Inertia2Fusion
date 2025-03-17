@@ -2,7 +2,8 @@
 # Description-
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
-from .utils import start_com_table, stop_com_table, start_inertia_table, stop_inertia_table
+
+from .utils import *
 
 handlers = []  # Lista global para manter referências dos handlers
 
@@ -33,10 +34,31 @@ def run(context):
     try:
         app = adsk.core.Application.get()
         ui  = app.userInterface
+        design = app.activeProduct
+
+        # pega o root comn
+        rootComp = design.rootComponent
 
         # Inicia a tabela de CoM. O callback on_com_data_received será chamado
         # quando o usuário confirmar os dados.
         start_com_table(ui, handlers, on_data_received=on_com_data_received)
+
+        if rootComp.bRepBodies.count > 0:
+            # itera para cada componente
+            # val = 1
+            # for body in range(rootComp.bRepBodies.count):
+            #     val+=1
+            # globalCoM, totalMass = computeGlobalCenterOfMass(rootComp)
+            # ui.messageBox("total_mass: {}, global_CoM {}".format(totalMass, globalCoM))
+
+            # globalInertia, totalMass, globalCoM = computeGlobalInertiaTensor(rootComp)
+            # ui.messageBox("Global Inertia Tensor (normalized): {}\nTotal Mass: {}\nGlobal CoM (mm): {}".format(
+            #     globalInertia, totalMass, globalCoM))
+            I_total, totalMass, globalCOM_mm = computeGlobalInertia(rootComp)
+            ui.messageBox("Tensor Global (kg·mm²):\n{}\nMassa Total: {}\nCentro de Massa Global (mm): {}".format(I_total, totalMass, globalCOM_mm))
+
+        else:
+            ui.messageBox("Nenhum corpo encontrado no componente ativo.")
         
         adsk.autoTerminate(False)
     except Exception as e:
