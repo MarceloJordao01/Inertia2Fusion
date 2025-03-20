@@ -67,133 +67,81 @@ def computeGlobalCenterOfMass(rootComp):
         return ((globalX, globalY, globalZ), totalMass)
     return ((0,0,0), 0)
 
-
-# TODO: corrigir a inercia por que ela eh calculada a partir do centro do componente, logo deve-se fazer a translacao primeiro e depois os eixos paralelos
-def computeGlobalInertiaTensor(rootComp):
-    """
-    Calcula o tensor de inércia global do componente, considerando a soma dos tensores
-    de inércia de cada corpo (obtidos a partir de getInertiaTensor) com o ajuste pelo teorema
-    do eixo paralelo. Os valores de distância (centro de massa) são convertidos de cm para mm
-    (multiplicando por 10) e o tensor é convertido de kg·cm² para kg·mm² (multiplicando por 100).
-    
-    Retorna:
-      - normalizedInertia: tensor de inércia global normalizado pela massa total (kg·mm²/kg)
-      - totalMass: massa total (kg)
-      - globalCoM: centro de massa global em mm (tuple)
-    """
-    # Calcula o centro de massa global (em cm) e a massa total
-    globalCoM_cm, totalMass = computeGlobalCenterOfMass(rootComp)
-    # Converte o centro de massa para mm
-    globalCoM = (globalCoM_cm[0] * 10, globalCoM_cm[1] * 10, globalCoM_cm[2] * 10)
-    
-    # Inicializa o tensor global (3x3) com zeros.
-    globalInertia = [[0.0, 0.0, 0.0],
-                     [0.0, 0.0, 0.0],
-                     [0.0, 0.0, 0.0]]
-    
-    # Matriz identidade 3x3
-    I3 = [[1, 0, 0],
-          [0, 1, 0],
-          [0, 0, 1]]
-    
-    bodies = rootComp.bRepBodies
-    for body in bodies:
-        mass = getMass(body)
-        # Obtém o tensor de inércia do corpo (em kg·cm²)
-        I_body_cm = getInertiaTensor(body)
-        if I_body_cm is None:
-            continue
-        # Converte para kg·mm² (multiplica cada valor por 100)
-        I_body = [[val * 100 for val in row] for row in I_body_cm]
-        
-        # Obtém o centro de massa do corpo (em cm) e converte para mm
-        com_body_cm = getCenterOfMass(body)
-        com_body = (com_body_cm[0] * 10, com_body_cm[1] * 10, com_body_cm[2] * 10)
-        
-        # Calcula o vetor de deslocamento d entre o centro do corpo e o centro global (em mm)
-        d = (com_body[0] - globalCoM[0],
-             com_body[1] - globalCoM[1],
-             com_body[2] - globalCoM[2])
-        d_norm_sq = d[0]**2 + d[1]**2 + d[2]**2
-        
-        # Calcula o termo do teorema do eixo paralelo:
-        # m * (||d||² * I - d*d^T)
-        parallel_term = [[ mass * (d_norm_sq * I3[i][j] - d[i] * d[j]) for j in range(3)] for i in range(3)]
-        
-        # Soma a contribuição do corpo: tensor do corpo + termo paralelo
-        I_total = [[I_body[i][j] + parallel_term[i][j] for j in range(3)] for i in range(3)]
-        
-        # Acumula no tensor global
-        for i in range(3):
-            for j in range(3):
-                globalInertia[i][j] += I_total[i][j]
-    
-    # Normaliza dividindo pelo total de massa, se for diferente de zero.
-    if totalMass != 0:
-        normalizedInertia = [[globalInertia[i][j] / totalMass for j in range(3)] for i in range(3)]
-    else:
-        normalizedInertia = globalInertia
-        
-    return normalizedInertia, totalMass, globalCoM
-
 def computeGlobalInertia(rootComp):
     """
-    Itera sobre todos os corpos do componente e calcula o tensor de inércia global,
-    transferindo cada tensor de inércia para o centro de massa global usando o teorema do eixo paralelo.
-    Essa função não realiza a normalização pela massa total.
+    Calcula o tensor de inércia global do componente, seguindo dois passos:
+      1. Para cada corpo, transfere o tensor de inércia (obtido em kg·cm²)
+         da origem (0,0,0) para o centro de massa do corpo (I_cm).
+      2. Transfere I_cm para o centro de massa global do componente (I_global)
+         usando o teorema dos eixos paralelos.
     
-    Notas:
-      - As massas são obtidas em kg.
-      - Os centros de massa são retornados em cm; multiplicamos por 10 para converter para mm.
-      - O tensor obtido por getInertiaTensor é assumido em kg·cm² e, para converter para kg·mm², multiplicamos por 100.
+    Conversões aplicadas:
+      - Massa: de kg para g (m_g = m * 1000).
+      - Centro de massa: de cm para mm (multiplicar por 10).
+      - Tensor: de kg·cm² para g·mm² (multiplicar por 100000).
     
     Retorna:
       (I_total, totalMass, globalCOM_mm)
-      onde I_total é o tensor de inércia global (kg·mm²), totalMass é a massa total (kg) e
-      globalCOM_mm é o centro de massa global em mm (tupla).
+      onde:
+        - I_total é o tensor de inércia global (soma de todos os I_global) em g·mm²,
+        - totalMass é a massa total em kg,
+        - globalCOM_mm é o centro de massa global em mm (tupla).
     """
     try:
-        # Obtém o centro de massa global (em cm) e a massa total
+        # Primeiro, obtenha o centro de massa global e a massa total usando uma função auxiliar.
+        # globalCOM_cm é em cm.
         globalCOM_cm, totalMass = computeGlobalCenterOfMass(rootComp)
-        # Converte o centro global de cm para mm
+        # Converte o centro de massa global para mm:
         globalCOM_mm = (globalCOM_cm[0]*10, globalCOM_cm[1]*10, globalCOM_cm[2]*10)
         
-        # Inicializa o tensor global 3x3 com zeros
+        # Inicializa o tensor global (3x3) com zeros (em g·mm²)
         I_total = [[0.0, 0.0, 0.0],
                    [0.0, 0.0, 0.0],
                    [0.0, 0.0, 0.0]]
         
-        # Itera por todos os corpos do componente
+        # Matriz identidade 3x3
+        I3 = [[1, 0, 0],
+              [0, 1, 0],
+              [0, 0, 1]]
+        
+        # Itera em todos os corpos (incluindo os aninhados) do componente
         bodies = rootComp.bRepBodies
         for body in bodies:
-            m = getMass(body)  # em kg
-            com_body_cm = getCenterOfMass(body)  # em cm
-            # Converte o centro de massa do corpo para mm
+            # Massa em kg e convertida para g.
+            m = getMass(body)  # kg
+            m_g = m * 1000     # g
+            
+            # Centro de massa do corpo (em cm), convertido para mm.
+            com_body_cm = getCenterOfMass(body)  # (cm)
             com_body_mm = (com_body_cm[0]*10, com_body_cm[1]*10, com_body_cm[2]*10)
             
-            # Vetor d = globalCOM_mm - com_body_mm (em mm)
+            # Obtenha o tensor de inércia do corpo relativo à origem (em kg·cm²) e converta para g·mm².
+            I_origin = getInertiaTensor(body)  # 3x3, kg·cm²
+            I_origin_gmm2 = [[elem * 100000 for elem in row] for row in I_origin]
+            
+            # --- Passo 1: Transferir do ponto (0,0,0) para o centro de massa do corpo ---
+            # Para isso, usamos:
+            # I_cm = I_origin - m_g * (||p||² * I3 - p * p^T)
+            # onde p = com_body_mm (vetor do corpo em mm)
+            norm_com = com_body_mm[0]**2 + com_body_mm[1]**2 + com_body_mm[2]**2
+            I_parallel_sub = [[ m_g * (norm_com * I3[i][j] - com_body_mm[i]*com_body_mm[j]) for j in range(3)] for i in range(3)]
+            I_cm = [[ I_origin_gmm2[i][j] - I_parallel_sub[i][j] for j in range(3)] for i in range(3)]
+            
+            # --- Passo 2: Transferir I_cm para o centro de massa global ---
+            # d = globalCOM_mm - com_body_mm (em mm)
             d = [globalCOM_mm[i] - com_body_mm[i] for i in range(3)]
-            d2 = d[0]**2 + d[1]**2 + d[2]**2  # norma de d ao quadrado
+            norm_d = d[0]**2 + d[1]**2 + d[2]**2
+            I_parallel_add = [[ m_g * (norm_d * I3[i][j] - d[i]*d[j]) for j in range(3)] for i in range(3)]
+            I_global = [[ I_cm[i][j] + I_parallel_add[i][j] for j in range(3)] for i in range(3)]
             
-            # Matriz identidade 3x3
-            I3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-            # Aplica o teorema do eixo paralelo: m * (||d||²·I₃ – d*dᵀ)
-            addInertia = [[ m * (d2 * I3[i][j] - d[i]*d[j]) for j in range(3)] for i in range(3)]
-            
-            # Obtém o tensor de inércia do corpo (em kg·cm²) e converte para kg·mm² (multiplica por 100)
-            I_body_cm2 = getInertiaTensor(body)
-            I_body_mm2 = [[elem * 100 for elem in row] for row in I_body_cm2]
-            
-            # Tensor do corpo transferido para o centro global:
-            I_body_global = [[I_body_mm2[i][j] + addInertia[i][j] for j in range(3)] for i in range(3)]
-            
-            # Soma o tensor de cada corpo
+            # Soma o tensor transferido de cada corpo no tensor global
             for i in range(3):
                 for j in range(3):
-                    I_total[i][j] += I_body_global[i][j]
+                    I_total[i][j] += I_global[i][j]
         
         return I_total, totalMass, globalCOM_mm
     except Exception as e:
         adsk.core.Application.get().userInterface.messageBox(
-            "Erro ao computar o tensor de inércia global (sem normalização):\n{}".format(traceback.format_exc()))
+            "Erro ao computar o tensor de inércia global:\n{}".format(traceback.format_exc()))
         return None, None, None
+    
