@@ -40,7 +40,7 @@ def getMass(body):
             'Erro ao obter a massa do corpo:\n{}'.format(traceback.format_exc()))
         return None
 
-def computeGlobalCenterOfMass(rootComp):
+def getGlobalCenterOfMass(rootComp):
     """
     Itera sobre todos os corpos (incluindo os aninhados) e calcula o centro de massa global.
     Retorna uma tupla ((globalX, globalY, globalZ), totalMass).
@@ -67,7 +67,7 @@ def computeGlobalCenterOfMass(rootComp):
         return ((globalX, globalY, globalZ), totalMass)
     return ((0,0,0), 0)
 
-def computeGlobalInertia(rootComp):
+def getGlobalInertia(rootComp):
     """
     Calcula o tensor de inércia global do componente, seguindo dois passos:
       1. Para cada corpo, transfere o tensor de inércia (obtido em kg·cm²)
@@ -90,7 +90,7 @@ def computeGlobalInertia(rootComp):
     try:
         # Primeiro, obtenha o centro de massa global e a massa total usando uma função auxiliar.
         # globalCOM_cm é em cm.
-        globalCOM_cm, totalMass = computeGlobalCenterOfMass(rootComp)
+        globalCOM_cm, totalMass = getGlobalCenterOfMass(rootComp)
         # Converte o centro de massa global para mm:
         globalCOM_mm = (globalCOM_cm[0]*10, globalCOM_cm[1]*10, globalCOM_cm[2]*10)
         

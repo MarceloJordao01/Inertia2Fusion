@@ -28,6 +28,7 @@ def on_inertia_data_received(inertia_values):
     ui = app.userInterface
     ui.messageBox("Dados recebidos:\nCoM: {}\nTensor: {}".format(com_data, inertia_data))
 
+
 def run(context):
     global ui
     ui = None
@@ -39,26 +40,21 @@ def run(context):
         # pega o root comn
         rootComp = design.rootComponent
 
-        # Inicia a tabela de CoM. O callback on_com_data_received será chamado
-        # quando o usuário confirmar os dados.
-        start_com_table(ui, handlers, on_data_received=on_com_data_received)
-
+        
         if rootComp.bRepBodies.count > 0:
-            # itera para cada componente
-            # val = 1
-            # for body in range(rootComp.bRepBodies.count):
-            #     val+=1
-            # globalCoM, totalMass = computeGlobalCenterOfMass(rootComp)
-            # ui.messageBox("total_mass: {}, global_CoM {}".format(totalMass, globalCoM))
-
-            # globalInertia, totalMass, globalCoM = computeGlobalInertiaTensor(rootComp)
-            # ui.messageBox("Global Inertia Tensor (normalized): {}\nTotal Mass: {}\nGlobal CoM (mm): {}".format(
-            #     globalInertia, totalMass, globalCoM))
-            I_total, totalMass, globalCOM_mm = computeGlobalInertia(rootComp)
-            ui.messageBox("Tensor Global (kg·mm²):\n{}\nMassa Total: {}\nCentro de Massa Global (mm): {}".format(I_total, totalMass, globalCOM_mm))
+            # pega a inercia total, massa total, posicao do CoM do componente
+            # isso sera usado para calcular o 
+            I_total, totalMass, globalCOM_mm = getGlobalInertia(rootComp)
+            # ui.messageBox("Tensor Global (kg·mm²):\n{}\nMassa Total: {}\nCentro de Massa Global (mm): {}".format(I_total, totalMass, globalCOM_mm))
 
         else:
             ui.messageBox("Nenhum corpo encontrado no componente ativo.")
+            adsk.autoTerminate(True)
+
+        # Inicia a tabela de CoM. O callback on_com_data_received será chamado
+        # quando o usuário confirmar os dados.
+        start_com_table(ui, handlers, on_data_received=on_com_data_received)
+        
         
         adsk.autoTerminate(False)
     except Exception as e:
