@@ -4,6 +4,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback
 
 from .utils import *
+import math
 
 handlers = []  # Lista global para manter referências dos handlers
 
@@ -26,7 +27,27 @@ def on_inertia_data_received(inertia_values):
     # Exemplo: exibir os valores no console (ou usar outra lógica).
     app = adsk.core.Application.get()
     ui = app.userInterface
+    design = app.activeProduct
+    rootComp = design.rootComponent
+
+    # Exemplo: cria uma caixa com dimensões:
+    # width = 10 mm, height = 20 mm, depth = 30 mm
+    # Se as unidades do design forem cm, converta 10 mm = 1 cm, etc.
+    width = 1.0    # 10 mm
+    height = 2.0   # 20 mm
+    depth = 3.0    # 30 mm
+    
+    
+    box = createBox(rootComp, width, height, depth)
+
+    # Rotaciona o corpo com 30° em X, 45° em Y e 60° em Z:
+    rotateBodyAroundCG_xyz(box, math.radians(30), math.radians(45), math.radians(60))
+
+    # Translada o corpo para x=10mm
+    translateBody(box, 10, 0, 0)
+
     ui.messageBox("Dados recebidos:\nCoM: {}\nTensor: {}".format(com_data, inertia_data))
+    adsk.autoTerminate(True)
 
 
 def run(context):
